@@ -1,2 +1,8 @@
 node_modules
 Document-processing-system.pdf
+/upload
+*.db
+*.db-shm
+*.db-wal
+*.csv
+.env
