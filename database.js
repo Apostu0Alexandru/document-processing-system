@@ -88,4 +88,83 @@ function fetchDocumentById(docId) {
     }
 }
 
-export { db, saveDocument, fetchDocuments, fetchDocumentById }
+function getUnprocessedDocuments() {
+    try {
+        const stmt = db.prepare(`
+        SELECT id, filename, file_type, file_size
+        FROM documents
+        WHERE status = 'pending'
+        ORDER BY upload_time ASC`);
+
+        const result = stmt.all();
+        return result;
+    } catch (error) {
+        console.error("Failed to get pending documents! ", { error: error.message });
+        throw error;
+    }
+}
+
+function markDocumentAsProcessing(idDocument) {
+    try {
+        const stmt = db.prepare(`
+            UPDATE documents
+            SET status = 'processing'
+            WHERE id = ?`
+        );
+
+        const result = stmt.run(idDocument);
+        return result.changes > 0;
+    } catch (error) {
+        console.error("Failed to mark document as processing.: ", { idDocument, error: error.message });
+        throw error;
+    }
+}
+
+// this function does 2 things, updates the document as completed
+// insert the extracted data into the table
+// all of this happens atomically with db.transaction.
+function markDocumentAsCompleted(idDocument, extractedDataRecords) {
+    try {
+        // updates the document id 
+        const updateDocument = db.prepare(`
+            UPDATE documents 
+            SET status = 'completed' 
+            WHERE id = ? 
+        `);
+        const insertData = db.prepare(`INSERT INTO extracted_data(document_id, data_type, content) VALUES (?, ?, ?)`);
+
+        // begin the transaction.
+        const transaction = db.transaction((docId, dataRecords) => {
+            updateDocument.run(docId);
+
+            for (const record of dataRecords) {
+                insertData.run(docId, record.data_type, record.content);
+            }
+        });
+
+        transaction(idDocument, extractedDataRecords);
+
+        return true;
+    } catch (error) {
+        console.error("Failed to mark document as processed: ", { idDocument, error: error.message });
+        throw error;
+    }
+}
+
+function markDocumentAsFailed(documentId, errorMessage) {
+    try {
+        const stmt = db.prepare(`
+            UPDATE documents
+            SET status = 'failed', error_message = ?
+            WHERE id = ?`);
+
+        stmt.run(documentId, errorMessage);
+        return true;
+    } catch (error) {
+        console.error("Failed to mark document as failed:", { documentId, error: error.message });
+        throw error;
+    }
+}
+
+
+export { db, saveDocument, fetchDocuments, fetchDocumentById, getUnprocessedDocuments, markDocumentAsProcessing, markDocumentAsCompleted, markDocumentAsFailed }

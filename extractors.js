@@ -1,7 +1,8 @@
 import { parse } from "csv-parse/sync";
-import pdfParse from 'pdf-parse'
+import { PDFParse } from "pdf-parse";
 import fs from 'fs';
 import sharp from "sharp";
+
 
 
 function extractCSVData(filePath) {
@@ -38,7 +39,7 @@ async function extractPDFData(filePath) {
     try {
         const dataRecords = fs.readFileSync(filePath);
 
-        let extractedRecords = await pdfParse(dataRecords);
+        let extractedRecords = await PDFParse(dataRecords);
 
         if (!extractedRecords.text) {
             throw new Error('PDF file contains no data');
@@ -97,4 +98,4 @@ async function extractImageData(filePath) {
     }
 }
 
-export { extractCSVData, extractPDFData, extractImageData}
+export { extractCSVData, extractPDFData, extractImageData }
